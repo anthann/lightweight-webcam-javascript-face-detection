@@ -10,7 +10,16 @@ let stream = null;
 
 let detectFace = document.getElementById('face');
 let detectEye = document.getElementById('eye');
+let playButton = document.getElementById("playbutton");
+playButton.addEventListener("click", handlePlayButton, false);
 let _cv = undefined;
+
+function handlePlayButton() {
+  if (!(typeof _cv === 'undefined')) {
+    initUI();
+    startCamera();
+  }
+}
 
 function startCamera() {
   if (streaming) return;
@@ -175,8 +184,7 @@ function opencvIsReady() {
   console.log('OpenCV.js is ready');
   cv.then(res => {
     _cv = res
-    initUI();
-    startCamera();
+    playButton.disabled = false
   })
   
 }

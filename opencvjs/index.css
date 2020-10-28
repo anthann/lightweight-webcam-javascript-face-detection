@@ -20,3 +20,9 @@ label {
   vertical-align: top;
   font: 16px 'Lucida Grande', sans-serif;
 }
+#playbutton {
+  width: 100px;
+  height: 60px;
+  display: block;
+  margin: auto;
+}
