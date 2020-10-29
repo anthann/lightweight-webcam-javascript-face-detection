@@ -10,26 +10,45 @@ let stream = null;
 
 let detectFace = document.getElementById('face');
 let detectEye = document.getElementById('eye');
+let playButton = document.getElementById("playbutton");
+
+let faceClassifier = null;
+let eyeClassifier = null;
+
+let videoCapture;
+let srcMat;
+let grayMat;
 let _cv = undefined;
+
+playButton.addEventListener("click", function() {
+  if (!(typeof _cv === 'undefined')) {
+    initUI();
+    startCamera();
+  }
+}, false);
+
 
 function startCamera() {
   if (streaming) return;
-  navigator.mediaDevices.getUserMedia({video: true, audio: false})
-    .then(function(s) {
-    stream = s;
-    video.srcObject = s;
-    video.play();
-  })
-    .catch(function(err) {
-    console.log("An error occured! " + err);
-  });
+  navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+    .then(function (s) {
+      stream = s;
+      video.srcObject = s;
+      video.play();
+    })
+    .catch(function (err) {
+      console.log("An error occured! " + err);
+    });
 
-  video.addEventListener("canplay", function(ev){
+  video.addEventListener("canplay", function (ev) {
     if (!streaming) {
       videoWidth = video.videoWidth;
       videoHeight = video.videoHeight;
       video.setAttribute("width", videoWidth);
       video.setAttribute("height", videoHeight);
+      video.setAttribute('autoplay', '');
+      video.setAttribute('muted', '');
+      video.setAttribute('playsinline', '');
       canvasOutput.width = videoWidth;
       canvasOutput.height = videoHeight;
       streaming = true;
@@ -38,50 +57,25 @@ function startCamera() {
   }, false);
 }
 
-let faceClassifier = null;
-let eyeClassifier = null;
-
-let src = null;
-let dstC1 = null;
-let dstC3 = null;
-let dstC4 = null;
-
-let canvasInput = null;
-let canvasInputCtx = null;
-
-let canvasBuffer = null;
-let canvasBufferCtx = null;
-
 function startVideoProcessing() {
   if (!streaming) { console.warn("Please startup your webcam"); return; }
-  stopVideoProcessing();
-  canvasInput = document.createElement('canvas');
-  canvasInput.width = videoWidth;
-  canvasInput.height = videoHeight;
-  canvasInputCtx = canvasInput.getContext('2d');
-  
-  canvasBuffer = document.createElement('canvas');
-  canvasBuffer.width = videoWidth;
-  canvasBuffer.height = videoHeight;
-  canvasBufferCtx = canvasBuffer.getContext('2d');
-  
+  videoCapture = new _cv.VideoCapture(video)
+
   srcMat = new _cv.Mat(videoHeight, videoWidth, _cv.CV_8UC4);
   grayMat = new _cv.Mat(videoHeight, videoWidth, _cv.CV_8UC1);
-  
+
   faceClassifier = new _cv.CascadeClassifier();
   faceClassifier.load('haarcascade_frontalface_default.xml');
-  
+
   eyeClassifier = new _cv.CascadeClassifier();
   eyeClassifier.load('haarcascade_eye.xml');
-  
+
   requestAnimationFrame(processVideo);
 }
 
 function processVideo() {
   stats.begin();
-  canvasInputCtx.drawImage(video, 0, 0, videoWidth, videoHeight);
-  let imageData = canvasInputCtx.getImageData(0, 0, videoWidth, videoHeight);
-  srcMat.data.set(imageData.data);
+  videoCapture.read(srcMat)
   _cv.cvtColor(srcMat, grayMat, _cv.COLOR_RGBA2GRAY);
   let faces = [];
   let eyes = [];
@@ -130,7 +124,7 @@ function processVideo() {
       eyeVect.delete();
     }
   }
-  canvasOutputCtx.drawImage(canvasInput, 0, 0, videoWidth, videoHeight);
+  _cv.imshow(canvasOutput, srcMat)
   drawResults(canvasOutputCtx, faces, 'red', size);
   drawResults(canvasOutputCtx, eyes, 'yellow', size);
   stats.end();
@@ -140,27 +134,19 @@ function processVideo() {
 function drawResults(ctx, results, color, size) {
   for (let i = 0; i < results.length; ++i) {
     let rect = results[i];
-    let xRatio = videoWidth/size.width;
-    let yRatio = videoHeight/size.height;
+    let xRatio = videoWidth / size.width;
+    let yRatio = videoHeight / size.height;
     ctx.lineWidth = 3;
     ctx.strokeStyle = color;
-    ctx.strokeRect(rect.x*xRatio, rect.y*yRatio, rect.width*xRatio, rect.height*yRatio);
+    ctx.strokeRect(rect.x * xRatio, rect.y * yRatio, rect.width * xRatio, rect.height * yRatio);
   }
-}
-
-function stopVideoProcessing() {
-  if (src != null && !src.isDeleted()) src.delete();
-  if (dstC1 != null && !dstC1.isDeleted()) dstC1.delete();
-  if (dstC3 != null && !dstC3.isDeleted()) dstC3.delete();
-  if (dstC4 != null && !dstC4.isDeleted()) dstC4.delete();
 }
 
 function stopCamera() {
   if (!streaming) return;
-  stopVideoProcessing();
   document.getElementById("canvasOutput").getContext("2d").clearRect(0, 0, width, height);
   video.pause();
-  video.srcObject=null;
+  video.srcObject = null;
   stream.getVideoTracks()[0].stop();
   streaming = false;
 }
@@ -175,8 +161,7 @@ function opencvIsReady() {
   console.log('OpenCV.js is ready');
   cv.then(res => {
     _cv = res
-    initUI();
-    startCamera();
+    playButton.disabled = false
   })
-  
+
 }
